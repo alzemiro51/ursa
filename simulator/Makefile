@@ -3,7 +3,7 @@ HEADERDIR :=./include
 OUTPUTDIR :=./bin
 
 CPP := g++
-CPPFLAGS := -g -c -O3 -I$(HEADERDIR) -Wall -Wextra -Werror 
+CPPFLAGS := -g -c -O3 -I$(HEADERDIR) -Wall -Wextra -Werror -std=c++11
 #-fsanitize=address
 
 ARFLAGS :=
@@ -18,7 +18,7 @@ $(OUTPUTDIR)/$(LIBNAME): $(OUTPUTDIR)/Metric.o $(OUTPUTDIR)/Model.o $(OUTPUTDIR)
 
 #compile all classes into %.o files
 $(OUTPUTDIR)/%.o: $(SOURCEDIR)/%.cpp 
-	$(CPP) $(CPPFLAGS) $< -o $@ 
+	$(CPP) $(CPPFLAGS) $< -o $@ -lpthread
 	
 .PHONY: clean
 clean:

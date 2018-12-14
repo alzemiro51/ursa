@@ -14,7 +14,7 @@ LIBSIM:=$(LIBSIM_PATH)/bin/libsim.a
 #Flags to be used during compilation of the platform. Note 
 #that they may be different form flags used for compiling
 #dependencies.
-GCCFLAGS  := -g -I$(LIBSIM_PATH)/include -I$(LIBMOD_PATH)/include -Wextra -Wall -Werror -O3 -lpthread
+GCCFLAGS  := -g -I$(LIBSIM_PATH)/include -I$(LIBMOD_PATH)/include -Wextra -Wall -Werror -O3 -std=c++11
 #-fsanitize=address
 
 LDFLAGS   := -L$(LIBSIM_PATH)/bin -L$(LIBMOD_PATH)/bin -lmod -lsim 
@@ -47,7 +47,7 @@ $(HELLFIREOS_PATH)/code0.bin:
 
 $(OUTPUTDIR)/$(PLATFORM_NAME).exe: $(SOURCEDIR)/Tile.cpp $(SOURCEDIR)/ProcessingTile.cpp $(SOURCEDIR)/NetworkTile.cpp $(SOURCEDIR)/Sulphane.cpp 
 	@echo "$'\e[036mBuilding target platform ($(PLATFORM_NAME))... \e[0m"
-	g++ $(SOURCEDIR)/Tile.cpp $(SOURCEDIR)/NetworkTile.cpp $(SOURCEDIR)/ProcessingTile.cpp $(SOURCEDIR)/Sulphane.cpp $(GCCFLAGS) $(LDFLAGS) -o $(OUTPUTDIR)/$(PLATFORM_NAME).exe -Iinclude
+	g++ $(SOURCEDIR)/Tile.cpp $(SOURCEDIR)/NetworkTile.cpp $(SOURCEDIR)/ProcessingTile.cpp $(SOURCEDIR)/Sulphane.cpp $(GCCFLAGS) $(LDFLAGS) -o $(OUTPUTDIR)/$(PLATFORM_NAME).exe -Iinclude -lpthread
 
 app:
 	@echo "$'\e[033mCleaning HellfireOS... \e[0m"
