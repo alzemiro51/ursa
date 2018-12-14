@@ -6,9 +6,6 @@
 #include "../include/udp_client_server.h"
 #include "../include/mpsoc_helper.h"
 
-#include "opencv2/highgui/highgui.hpp"
-#include "cv_bridge/cv_bridge.h"
-
 #include <iostream>
 #include <fstream>
 
@@ -277,7 +274,7 @@ int main(int argc,char **argv)
 	//read map
 	FILE *fd;
 	if((fd=fopen("smooth_map.bmp","r"))==NULL){
-		std::cout << "Error in fopen: smooth_map.pgm" << " -> " << strerror(errno) << std::endl;
+		std::cout << "Error in fopen: smooth_map.bmp" << " -> " << strerror(errno) << std::endl;
 		exit (3);
 	}
 

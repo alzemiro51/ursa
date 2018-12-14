@@ -153,6 +153,11 @@ add_executable(${PROJECT_NAME}_node src/udp_client_server.cpp src/mpsoc_node.cpp
    ${catkin_LIBRARIES}
  )
 
+ADD_DEFINITIONS(
+    -std=c++11 # Or -std=c++0x
+    # Other flags
+)
+
 #############
 ## Install ##
 #############
