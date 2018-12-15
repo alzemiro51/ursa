@@ -41,6 +41,11 @@
 #define MAP_W		1792
 #define MAP_H		1700
 
+#define DISTANCE_VECTOR	1
+#define MAP_VALUES		2
+#define MAP_REQUEST		3
+#define WEIGHT_REPONSE	4
+
 #define chartou(A)		((char)(A) < 0 ? (A & 0x7f)+128 : (A))
 
 
@@ -76,6 +81,7 @@ udp_server* userver;
 
 #define MOD_SKIP_PACKET 100
 unsigned int packet_counter = 0;
+unsigned int draw_counter = 0;
 
 Odometry current_pose;
 Particle particle_cloud[PARTICLE_NUM];
@@ -109,18 +115,17 @@ int check_bounds(int x, int y){
 	return 1;
 }
 
-void draw_particle(Particle p){
+void draw_particle(unsigned char *map, Particle p){
 	int xp = MAP_W/2 + p.x*RESOLUTION;
 	int yp = MAP_H/2 + p.y*RESOLUTION;
 
-	printf("drawing particle %d, %d\n", xp, yp);
 	for(int y = yp-2; y <= yp+2; y++)
 		for(int x = xp-2; x <= xp+2; x++)
 			map[BMP_HEADER + y*MAP_W + x] = 0;
 
 }
 
-void draw_point(int xp, int yp){
+void draw_point(unsigned char *map, int xp, int yp){
 
 	if(check_bounds(xp,yp))
 		for(int y = yp-2; y <= yp+2; y++)
@@ -185,6 +190,8 @@ void mpsoc_in_callback(const topic_t::ConstPtr& msg){
 		init_cloud(particle_cloud, current_pose.x, current_pose.y, current_pose.theta);
 		int index_ini = index;
 
+		buffer[16] = DISTANCE_VECTOR; 
+
 		for (int i = 1; i < MPSOC_SIZE; i++){
 			index = index_ini;
 			int xi = particle_cloud[i-1].x * 100;
@@ -205,17 +212,6 @@ void mpsoc_in_callback(const topic_t::ConstPtr& msg){
 			add_noc_header(buffer, i);
 			uclient->send((const char*)buffer, UDP_BUFFER_LEN);	
 		}
-
-		for (int i = 0; i < PARTICLE_NUM; i++)
-			draw_particle(particle_cloud[i]);
-
-
-		FILE *fdo;
-		if((fdo=fopen("output.bmp","w"))==NULL){
-			std::cout << "Error in fopen: smooth_map.pgm" << " -> " << strerror(errno) << std::endl;
-			exit (3);
-		}
-		if(fwrite(map,sizeof(unsigned char), MAP_W*MAP_H+BMP_HEADER, fdo) != MAP_W*MAP_H+BMP_HEADER) {fputs ("Writing error\n",stderr); exit (3);}
 		
 		ROS_INFO("data sent");	
 		//exit(0);
@@ -233,6 +229,7 @@ void* mpsoc_out(void* v){
 	char buffer[UDP_BUFFER_LEN];
 	unsigned char send_buff[UDP_BUFFER_LEN];
 	int x, y;
+	unsigned char *output;
 	
 	while(1){
 	
@@ -240,27 +237,62 @@ void* mpsoc_out(void* v){
 		userver->recv(buffer, UDP_BUFFER_LEN);
 		
 		char source = buffer[4];
+		char service = buffer[17];
 
-		for(int i = 0; i < NUM_SAMPLES/2; i++){
-			x = (unsigned char)buffer[16+i*4] << 8 | (unsigned char)buffer[17+i*4];
-			y = (unsigned char)buffer[18+i*4] << 8 | (unsigned char)buffer[19+i*4];
-			if (check_bounds(x,y))
-				send_buff[i+16] = map[BMP_HEADER + y*MAP_W + x];
-			else
-				send_buff[i+16] = 255;
-			if(source == 1)
-				draw_point(x, y);
+		if (service == MAP_REQUEST){
+
+			if(source == 1 && draw_counter == 0){
+				output = (unsigned char *) malloc(MAP_W*MAP_H+BMP_HEADER);
+				memcpy(output, map, MAP_W*MAP_H+BMP_HEADER);
+				draw_particle(output, particle_cloud[1]);
+			}
+
+			send_buff[16] = MAP_VALUES;
+
+			for(int i = 0; i < NUM_SAMPLES/2; i++){
+				x = (unsigned char)buffer[18+i*4] << 8 | (unsigned char)buffer[19+i*4];
+				y = (unsigned char)buffer[20+i*4] << 8 | (unsigned char)buffer[21+i*4];
+				if (check_bounds(x,y))
+					send_buff[i+18] = map[BMP_HEADER + y*MAP_W + x];
+				else
+					send_buff[i+18] = 255;
+				if(source == 1){
+					draw_point(output, x, y);
+					draw_counter++;
+				}
+			}
+			usleep(25000);
+			add_noc_header(send_buff, source);
+			uclient->send((const char*)send_buff, UDP_BUFFER_LEN);
+
+			if(source == 1 && draw_counter == 32){
+				draw_counter = 0;
+				ROS_INFO("writing image");
+				//Write image for visualization
+				FILE *fdo;
+				if((fdo=fopen("output.bmp","w"))==NULL){
+					std::cout << "Error in fopen: smooth_map.pgm" << " -> " << strerror(errno) << std::endl;
+					exit (3);
+				}
+				if(fwrite(output,sizeof(unsigned char), MAP_W*MAP_H+BMP_HEADER, fdo) != MAP_W*MAP_H+BMP_HEADER) {fputs ("Writing error\n",stderr); exit (3);}
+			}
 		}
-		usleep(25000);
-		add_noc_header(send_buff, source);
-		uclient->send((const char*)send_buff, UDP_BUFFER_LEN);	
+
+		if (service == WEIGHT_REPONSE){
+			unsigned int prob;
+
+			prob = (unsigned char)buffer[21] << 24 | (unsigned char)buffer[20] << 16 | 
+				   (unsigned char)buffer[19] << 8  | (unsigned char)buffer[18];
+
+			printf("wiehgt response %d = %d\n", source, prob);
+		}
 		
 		//unpack data
 		topic_t data;
 		
 		//publish through ros 
 		pub_mpsoc_out.publish(data);
-		
+
 		//ROS_INFO("data recv'd");
 	}
 }
